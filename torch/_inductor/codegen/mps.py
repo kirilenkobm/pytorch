@@ -1307,8 +1307,8 @@ class MetalKernel(SIMDKernel):
         if not (lower or upper):
             return
 
-        expr_str = self.index_to_str(expr)
-        size_str = self.index_to_str(size)
+        expr_str = f"({self.index_to_str(expr)})"
+        size_str = f"({self.index_to_str(size)})"
 
         # Generate bounds checking with error reporting
         # TODO(malfet): Is upper bound inclusive or exclusive?

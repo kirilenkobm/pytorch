@@ -2281,6 +2281,35 @@ class CommonTemplate:
         actual = _run_and_assert_no_indirect_indexing(self, copy_opt, x)
         self.assertEqual(expect, actual)
 
+    @parametrize("n", [2, 8, 65])
+    @parametrize("shift", [1, 2])
+    def test_index_propagation_negative_arange_dynamic(self, n, shift):
+        def fn(x):
+            index = torch.arange(x.shape[-1], device=x.device) - shift
+            return x[..., index]
+
+        x_cpu = torch.arange(4 * n, dtype=torch.float32).reshape(4, n)
+        x = x_cpu.to(self.device)
+
+        expected = torch.roll(x_cpu, shifts=shift, dims=-1)
+        compiled = torch.compile(fn, backend="inductor", fullgraph=True, dynamic=True)
+        actual = compiled(x).cpu()
+        self.assertEqual(actual, expected)
+
+    @parametrize("n", [2, 8, 65])
+    def test_index_propagation_pairwise_difference_dynamic(self, n):
+        def fn(x):
+            index = torch.arange(x.shape[-1], device=x.device)
+            return x[..., index[:, None] - index[None, :]]
+
+        x_cpu = torch.arange(4 * n, dtype=torch.float32).reshape(4, n)
+        x = x_cpu.to(self.device)
+
+        expected = fn(x_cpu)
+        compiled = torch.compile(fn, backend="inductor", fullgraph=True, dynamic=True)
+        actual = compiled(x).cpu()
+        self.assertEqual(actual, expected)
+
     @dynamo_config.patch("capture_dynamic_output_shape_ops", True)
     # https://github.com/halide/Halide/issues/8308
     @config.patch("halide.scheduler_cpu", "Mullapudi2016")
